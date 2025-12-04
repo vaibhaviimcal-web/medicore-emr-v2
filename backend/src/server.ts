@@ -16,6 +16,7 @@ import prescriptionRoutes from './routes/prescription.routes'
 import billingRoutes from './routes/billing.routes'
 import telemedicineRoutes from './routes/telemedicine.routes'
 import analyticsRoutes from './routes/analytics.routes'
+import aiRoutes from './routes/ai.routes'
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware'
@@ -57,7 +58,8 @@ app.get('/health', (req: Request, res: Response) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    version: '2.0.0'
   })
 })
 
@@ -69,6 +71,7 @@ app.use('/api/prescriptions', prescriptionRoutes)
 app.use('/api/billing', billingRoutes)
 app.use('/api/telemedicine', telemedicineRoutes)
 app.use('/api/analytics', analyticsRoutes)
+app.use('/api/ai', aiRoutes)
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -88,11 +91,25 @@ io.on('connection', (socket) => {
   socket.on('join-consultation', (roomId: string) => {
     socket.join(roomId)
     logger.info(`Socket ${socket.id} joined consultation room ${roomId}`)
+    io.to(roomId).emit('user-joined', { socketId: socket.id })
   })
 
   socket.on('leave-consultation', (roomId: string) => {
     socket.leave(roomId)
     logger.info(`Socket ${socket.id} left consultation room ${roomId}`)
+    io.to(roomId).emit('user-left', { socketId: socket.id })
+  })
+
+  socket.on('video-offer', (data) => {
+    socket.to(data.roomId).emit('video-offer', data)
+  })
+
+  socket.on('video-answer', (data) => {
+    socket.to(data.roomId).emit('video-answer', data)
+  })
+
+  socket.on('ice-candidate', (data) => {
+    socket.to(data.roomId).emit('ice-candidate', data)
   })
 
   socket.on('disconnect', () => {
@@ -106,6 +123,9 @@ httpServer.listen(PORT, () => {
   logger.info(`🚀 MediCore EMR Backend running on port ${PORT}`)
   logger.info(`📝 Environment: ${process.env.NODE_ENV}`)
   logger.info(`🔗 API URL: http://localhost:${PORT}`)
+  logger.info(`🏥 Health Check: http://localhost:${PORT}/health`)
+  logger.info(`🤖 AI Features: Enabled`)
+  logger.info(`📹 Telemedicine: Enabled`)
 })
 
 export { app, io }
